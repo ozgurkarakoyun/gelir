@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Klinik Takip — Giriş</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient(135deg,#0d3d8a,#1255b8,#0878b8);min-height:100vh;display:flex;align-items:center;justify-content:center}
+.kutu{background:#fff;border-radius:16px;padding:2.5rem;width:min(380px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.logo{text-align:center;margin-bottom:2rem}
+.logo .ikon{font-size:48px;display:block;margin-bottom:.5rem}
+.logo h1{font-size:20px;font-weight:700;color:#111827}
+.logo p{font-size:13px;color:#6b7280;margin-top:4px}
+label{font-size:11px;font-weight:700;color:#4b5570;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px}
+input{width:100%;padding:10px 13px;border:1.5px solid #c8d0e0;border-radius:8px;font:inherit;font-size:14px;color:#111827;outline:none;transition:.15s;margin-bottom:1rem}
+input:focus{border-color:#1255b8;box-shadow:0 0 0 3px rgba(18,85,184,.12)}
+.btn-giris{width:100%;padding:13px;background:linear-gradient(120deg,#0d3d8a,#1255b8);color:#fff;border:none;border-radius:8px;font:inherit;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 3px 12px rgba(18,85,184,.35);transition:.15s;margin-top:.5rem}
+.btn-giris:hover{opacity:.9}
+.btn-giris:disabled{opacity:.5;cursor:not-allowed}
+.hata{background:#fdd8d6;color:#801010;border:1.5px solid #cc2020;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:1rem;display:none}
+</style>
+</head>
+<body>
+<div class="kutu">
+  <div class="logo">
+    <span class="ikon">🏥</span>
+    <h1>Klinik Takip</h1>
+    <p>Lütfen giriş yapın</p>
+  </div>
+  <div class="hata" id="hata"></div>
+  <label>Kullanıcı Adı</label>
+  <input id="kullanici" type="text" placeholder="admin" autocomplete="username">
+  <label>Şifre</label>
+  <input id="sifre" type="password" placeholder="••••••••" autocomplete="current-password"
+    onkeydown="if(event.key==='Enter')girisYap()">
+  <button class="btn-giris" id="btn" onclick="girisYap()">Giriş Yap</button>
+</div>
+<script>
+async function girisYap() {
+  const k = document.getElementById('kullanici').value.trim();
+  const s = document.getElementById('sifre').value;
+  const btn = document.getElementById('btn');
+  const hata = document.getElementById('hata');
+  if (!k || !s) { goster('Kullanıcı adı ve şifre gerekli'); return; }
+  btn.disabled = true; btn.textContent = 'Giriş yapılıyor...';
+  hata.style.display = 'none';
+  try {
+    const r = await fetch('/api/giris', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({kullanici:k, sifre:s})
+    });
+    const d = await r.json();
+    if (d.ok) { window.location.href = '/'; }
+    else { goster(d.hata || 'Hatalı giriş'); }
+  } catch { goster('Sunucuya bağlanılamadı'); }
+  btn.disabled = false; btn.textContent = 'Giriş Yap';
+}
+function goster(msg) {
+  const h = document.getElementById('hata');
+  h.textContent = msg; h.style.display = 'block';
+}
+</script>
+</body>
+</html>
