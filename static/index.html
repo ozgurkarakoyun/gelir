@@ -311,6 +311,10 @@ tbody tr:hover td{background:#f0f5ff}
       </div>
     </div>
     <div class="alan"><label class="etiket">Notlar</label><input id="g-notlar" type="text" placeholder="İsteğe bağlı..."></div>
+    <div class="alan" style="display:flex;align-items:center;gap:10px;padding:10px;background:#fdd8d6;border:1.5px solid #cc2020;border-radius:7px">
+      <input type="checkbox" id="g-odenmedi" style="width:18px;height:18px;cursor:pointer;accent-color:#cc2020">
+      <label for="g-odenmedi" style="font-size:13px;font-weight:600;color:#801010;cursor:pointer">Bu gider henüz ödenmedi (borç olarak ekle)</label>
+    </div>
     <button class="btn-kaydet" id="btn-gider" onclick="giderEkle()">Gideri Ekle</button>
   </div>
 
@@ -333,7 +337,7 @@ tbody tr:hover td{background:#f0f5ff}
   <div class="krt" style="padding:0">
     <div class="tablo-wrap">
       <table>
-        <thead><tr><th>Tarih</th><th>Kategori</th><th>Açıklama</th><th>Ödeme</th><th style="text-align:right">Tutar</th><th>Not</th><th style="text-align:center">İşlem</th></tr></thead>
+        <thead><tr><th>Durum</th><th>Tarih</th><th>Kategori</th><th>Açıklama</th><th>Ödeme</th><th style="text-align:right">Tutar</th><th>Not</th><th style="text-align:center">İşlem</th></tr></thead>
         <tbody id="gider-govde"><tr><td colspan="7"><div class="yukl">Yükleniyor...</div></td></tr></tbody>
       </table>
     </div>
@@ -814,11 +818,16 @@ async function giderEkle(){
   const btn=document.getElementById('btn-gider');
   btn.disabled=true;btn.textContent='Kaydediliyor...';
   try{
-    await api('/api/giderler',{method:'POST',body:JSON.stringify({tarih:tarih+'T12:00',kategori,aciklama,tutar,odeme:gPay,notlar})});
+    await api('/api/giderler',{method:'POST',body:JSON.stringify({
+      tarih:tarih+'T12:00',kategori,aciklama,tutar,odeme:gPay,
+      odendi: !document.getElementById('g-odenmedi').checked,
+      notlar
+    })});
     bildirim('✓ Gider eklendi');
     document.getElementById('g-aciklama').value='';
     document.getElementById('g-tutar').value='';
     document.getElementById('g-notlar').value='';
+    document.getElementById('g-odenmedi').checked=false;
     giderListeYukle();
   }catch(e){bildirim('❌ '+e.message);}
   btn.disabled=false;btn.textContent='Gideri Ekle';
@@ -843,10 +852,10 @@ async function giderListeYukle(){
     const kar=karVeri.net_kar;
     const karRenk=kar>=0?'#158a38':'#cc2020';
     document.getElementById('kar-stats').innerHTML=`
-      <div class="stat-krt"><div class="stat-etiket">Toplam Gelir</div><div class="stat-sayi" style="font-size:16px;color:#158a38">${para(karVeri.toplam_gelir)}</div></div>
-      <div class="stat-krt"><div class="stat-etiket">Toplam Gider</div><div class="stat-sayi" style="font-size:16px;color:#cc2020">${para(karVeri.toplam_gider)}</div></div>
-      <div class="stat-krt"><div class="stat-etiket">Net Kar</div><div class="stat-sayi" style="font-size:16px;color:${karRenk}">${para(Math.abs(kar))}</div></div>
-      <div class="stat-krt"><div class="stat-etiket">Kar Marji</div><div class="stat-sayi" style="font-size:16px;color:${karRenk}">${karVeri.toplam_gelir?Math.round(kar/karVeri.toplam_gelir*100):0}%</div></div>`;
+      <div class="stat-krt"><div class="stat-etiket">Toplam Gelir</div><div class="stat-sayi" style="font-size:15px;color:#158a38">${para(karVeri.toplam_gelir)}</div></div>
+      <div class="stat-krt"><div class="stat-etiket">Toplam Gider</div><div class="stat-sayi" style="font-size:15px;color:#cc2020">${para(karVeri.toplam_gider)}</div></div>
+      <div class="stat-krt"><div class="stat-etiket">Net Kar</div><div class="stat-sayi" style="font-size:15px;color:${karRenk}">${para(Math.abs(kar))}</div></div>
+      <div class="stat-krt" style="border-color:#cc2020;background:#fdd8d6"><div class="stat-etiket" style="color:#801010">Odenmemis Borc</div><div class="stat-sayi" style="font-size:15px;color:#cc2020">${para(karVeri.toplam_borc||0)}</div></div>`;
     barGrafik('kat-bar',karVeri.kategoriler.map(k=>({e:k.kategori,d:k.tutar})),e=>KAT_RENK[e]||'#4b5570',para);
     const aylikEl=document.getElementById('aylik-kar-bar');
     if(!karVeri.aylik.length){aylikEl.innerHTML='<div style="color:var(--y3);font-size:13px;padding:.5rem">Veri yok</div>';}
@@ -861,18 +870,28 @@ async function giderListeYukle(){
     }
     const rows=giderVeri.giderler;
     const tb=document.getElementById('gider-govde');
-    if(!rows.length){tb.innerHTML='<tr><td colspan="7"><div class="bos">Gider kaydı yok</div></td></tr>';return}
+    if(!rows.length){tb.innerHTML='<tr><td colspan="8"><div class="bos">Gider kaydı yok</div></td></tr>';return}
     tb.innerHTML=rows.map(g=>{
+      const odendi=g.odendi!==undefined?g.odendi:1;
       const pB=g.odeme==='nakit'?'<span class="bdg bdg-nakit">Nakit</span>':g.odeme==='kk'?'<span class="bdg bdg-kk">K.Kartı</span>':'<span class="bdg bdg-havale">Havale</span>';
       const renk=KAT_RENK[g.kategori]||'#4b5570';
-      return`<tr>
+      const durumBdg=odendi
+        ? '<span class="bdg" style="background:#d4f5dd;color:#0a4820">✓ Ödendi</span>'
+        : '<span class="bdg" style="background:#fdd8d6;color:#801010">⚠ Borç</span>';
+      const satirStil=odendi?'':'background:#fff8f8';
+      const tutarRenk=odendi?'#cc2020':'#cc2020';
+      const toggleBtn=odendi
+        ? `<button class="btn" style="font-size:11px;padding:4px 8px;margin-right:4px;background:#fdd8d6;color:#801010;border-color:transparent" onclick="odendiBtoggle(${g.id})">Borç Yap</button>`
+        : `<button class="btn" style="font-size:11px;padding:4px 8px;margin-right:4px;background:#d4f5dd;color:#0a4820;border-color:transparent" onclick="odendiBtoggle(${g.id})">Ödendi ✓</button>`;
+      return`<tr style="${satirStil}">
+        <td>${durumBdg}</td>
         <td style="white-space:nowrap;font-size:12px;color:var(--y2)">${g.tarih.slice(0,10)}</td>
         <td><span class="bdg" style="background:${renk}22;color:${renk}">${g.kategori}</span></td>
         <td style="font-weight:600">${g.aciklama}</td>
         <td>${pB}</td>
-        <td style="text-align:right;font-weight:700;color:#cc2020">${para(g.tutar)}</td>
+        <td style="text-align:right;font-weight:700;color:${tutarRenk}">${para(g.tutar)}</td>
         <td style="font-size:12px;color:var(--y2)">${g.notlar||''}</td>
-        <td style="text-align:center"><button class="btn btn-sil" onclick="giderSil(${g.id})">🗑 Sil</button></td>
+        <td style="text-align:center;white-space:nowrap">${toggleBtn}<button class="btn btn-sil" onclick="giderSil(${g.id})">🗑</button></td>
       </tr>`;
     }).join('');
   }catch(e){bildirim('❌ Gider yüklenemedi: '+e.message);}
@@ -882,6 +901,14 @@ async function giderSil(id){
   if(!confirm('Bu gideri silmek istediğinize emin misiniz?'))return;
   try{await api('/api/giderler/'+id,{method:'DELETE'});bildirim('Gider silindi');giderListeYukle();}
   catch(e){bildirim('❌ '+e.message);}
+}
+
+async function odendiBtoggle(id){
+  try{
+    const d=await api('/api/giderler/'+id+'/odendi',{method:'POST'});
+    bildirim(d.odendi?'✓ Ödendi olarak işaretlendi':'Borç olarak işaretlendi');
+    giderListeYukle();
+  }catch(e){bildirim('❌ '+e.message);}
 }
 
 // Init — tarih alanlarını bugüne set et
