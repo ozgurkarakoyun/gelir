@@ -53,8 +53,14 @@ def kurulum():
         aciklama TEXT NOT NULL,
         tutar REAL NOT NULL DEFAULT 0,
         odeme TEXT NOT NULL DEFAULT 'nakit',
+        odendi INTEGER NOT NULL DEFAULT 1,
         notlar TEXT DEFAULT ''
     )''')
+    # Mevcut tabloya odendi kolonu ekle (varsa hata yok)
+    try:
+        db.execute('ALTER TABLE giderler ADD COLUMN odendi INTEGER NOT NULL DEFAULT 1')
+    except:
+        pass
     db.commit()
     db.close()
 
@@ -170,6 +176,12 @@ def gider_listele():
     bas = request.args.get('bas', '2000-01-01')
     bit = request.args.get('bit', '2099-12-31')
     db = kon()
+    # Mevcut DB'ye odendi kolonu yoksa ekle
+    try:
+        db.execute('ALTER TABLE giderler ADD COLUMN odendi INTEGER NOT NULL DEFAULT 1')
+        db.commit()
+    except:
+        pass
     rows = [dict(r) for r in db.execute(
         'SELECT * FROM giderler WHERE tarih>=? AND tarih<=? ORDER BY tarih DESC',
         [bas+'T00:00:00', bit+'T23:59:59']
@@ -177,7 +189,9 @@ def gider_listele():
     db.close()
     return jsonify({
         'giderler': rows,
-        'toplam': sum(r['tutar'] for r in rows)
+        'toplam': sum(r['tutar'] for r in rows),
+        'odenen': sum(r['tutar'] for r in rows if r.get('odendi',1)),
+        'borc': sum(r['tutar'] for r in rows if not r.get('odendi',1)),
     })
 
 @app.route('/api/giderler', methods=['POST'])
@@ -188,9 +202,10 @@ def gider_ekle():
         return jsonify({'hata': 'Eksik bilgi'}), 400
     db = kon()
     cur = db.execute(
-        'INSERT INTO giderler (tarih,kategori,aciklama,tutar,odeme,notlar) VALUES (?,?,?,?,?,?)',
+        'INSERT INTO giderler (tarih,kategori,aciklama,tutar,odeme,odendi,notlar) VALUES (?,?,?,?,?,?,?)',
         (d['tarih'], d.get('kategori','Diğer'), d['aciklama'],
-         float(d.get('tutar',0)), d.get('odeme','nakit'), d.get('notlar',''))
+         float(d.get('tutar',0)), d.get('odeme','nakit'),
+         1 if d.get('odendi', True) else 0, d.get('notlar',''))
     )
     yeni_id = cur.lastrowid
     db.commit()
@@ -204,14 +219,28 @@ def gider_guncelle(gid):
     d = request.get_json()
     db = kon()
     db.execute(
-        'UPDATE giderler SET tarih=?,kategori=?,aciklama=?,tutar=?,odeme=?,notlar=? WHERE id=?',
+        'UPDATE giderler SET tarih=?,kategori=?,aciklama=?,tutar=?,odeme=?,odendi=?,notlar=? WHERE id=?',
         (d['tarih'], d.get('kategori','Diğer'), d['aciklama'],
-         float(d.get('tutar',0)), d.get('odeme','nakit'), d.get('notlar',''), gid)
+         float(d.get('tutar',0)), d.get('odeme','nakit'),
+         1 if d.get('odendi', True) else 0, d.get('notlar',''), gid)
     )
     db.commit()
     row = db.execute('SELECT * FROM giderler WHERE id=?', (gid,)).fetchone()
     db.close()
     return jsonify(dict(row))
+
+@app.route('/api/giderler/<int:gid>/odendi', methods=['POST'])
+@giris_gerekli
+def gider_odendi_toggle(gid):
+    db = kon()
+    mevcut = db.execute('SELECT odendi FROM giderler WHERE id=?', (gid,)).fetchone()
+    if not mevcut:
+        return jsonify({'hata': 'Bulunamadı'}), 404
+    yeni = 0 if mevcut['odendi'] else 1
+    db.execute('UPDATE giderler SET odendi=? WHERE id=?', (yeni, gid))
+    db.commit()
+    db.close()
+    return jsonify({'ok': True, 'odendi': yeni})
 
 @app.route('/api/giderler/<int:gid>', methods=['DELETE'])
 @giris_gerekli
@@ -239,6 +268,7 @@ def kar_rapor():
     db.close()
     toplam_gelir = sum(r['ucret'] for r in gelir_rows)
     toplam_gider = sum(r['tutar'] for r in gider_rows)
+    toplam_borc  = sum(r['tutar'] for r in gider_rows if not r.get('odendi', 1))
     # Aylık kırılım
     ay_map = {}
     for r in gelir_rows:
@@ -256,6 +286,7 @@ def kar_rapor():
     return jsonify({
         'toplam_gelir': toplam_gelir,
         'toplam_gider': toplam_gider,
+        'toplam_borc': toplam_borc,
         'net_kar': toplam_gelir - toplam_gider,
         'aylik': [{'ay':k,'gelir':v['gelir'],'gider':v['gider'],'kar':v['gelir']-v['gider']} for k,v in sorted(ay_map.items())],
         'kategoriler': [{'kategori':k,'tutar':v} for k,v in sorted(kat_map.items(), key=lambda x:-x[1])]
