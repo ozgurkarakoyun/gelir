@@ -292,7 +292,9 @@ tbody tr:hover td{background:#f0f5ff}
         <select id="g-kategori">
           <option>Kira</option><option>Personel</option><option>Malzeme</option>
           <option>Fatura</option><option>Cihaz / Ekipman</option>
-          <option>Temizlik</option><option>Muhasebe</option><option>Diğer</option>
+          <option>Temizlik</option><option>Muhasebe</option>
+          <option>Hastane Ödemesi</option><option>Firma Ödemesi</option>
+          <option>Yemek Gideri</option><option>Diğer</option>
         </select>
       </div>
     </div>
@@ -801,7 +803,7 @@ function giderFiltreSifirla(){
   giderListeYukle();
 }
 
-const KAT_RENK={'Kira':'#c83030','Personel':'#7020c8','Malzeme':'#c87010','Fatura':'#0878b8','Cihaz / Ekipman':'#158a38','Temizlik':'#1255b8','Muhasebe':'#8892a8','Diğer':'#4b5570'};
+const KAT_RENK={'Kira':'#c83030','Personel':'#7020c8','Malzeme':'#c87010','Fatura':'#0878b8','Cihaz / Ekipman':'#158a38','Temizlik':'#1255b8','Muhasebe':'#8892a8','Hastane Ödemesi':'#c83070','Firma Ödemesi':'#308070','Yemek Gideri':'#a06820','Diğer':'#4b5570'};
 
 async function giderListeYukle(){
   const bas=document.getElementById('gl-bas').value||'2000-01-01';
