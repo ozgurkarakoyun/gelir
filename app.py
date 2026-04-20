@@ -302,15 +302,23 @@ def sms_gonder():
         return jsonify({'hata': str(e)}), 500
 
 # ── SPA ───────────────────────────────────────────────────
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def spa(path):
-    if path and os.path.exists(os.path.join(app.static_folder, path)):
-        return send_from_directory(app.static_folder, path)
-    if path == 'giris' or path == 'giris.html':
-        return send_from_directory(app.static_folder, 'giris.html')
+@app.route('/')
+def ana():
     if not session.get('giris'):
         return send_from_directory(app.static_folder, 'giris.html')
-    return send_from_directory(app.static_folder, 'index.html') 
+    return send_from_directory(app.static_folder, 'index.html')
+
+@app.route('/giris')
+def giris_route():
+    return send_from_directory(app.static_folder, 'giris.html')
+
+@app.route('/<path:path>')
+def spa(path):
+    dosya = os.path.join(app.static_folder, path)
+    if os.path.exists(dosya):
+        return send_from_directory(app.static_folder, path)
+    if not session.get('giris'):
+        return send_from_directory(app.static_folder, 'giris.html')
+    return send_from_directory(app.static_folder, 'index.html')
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
