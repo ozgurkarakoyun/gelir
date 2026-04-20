@@ -4,6 +4,19 @@ import sqlite3, os, io
 from datetime import datetime
 from functools import wraps
 
+try:
+    from twilio.rest import Client as TwilioClient
+    TWILIO_OK = True
+except ImportError:
+    TWILIO_OK = False
+
+try:
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    EXCEL_OK = True
+except ImportError:
+    EXCEL_OK = False
+
 app = Flask(__name__, static_folder='static', static_url_path='')
 app.secret_key = os.environ.get('SECRET_KEY', 'klinik-gizli-2024')
 CORS(app, supports_credentials=True)
@@ -195,8 +208,9 @@ def excel_indir():
     rows = [dict(r) for r in db.execute(q, p).fetchall()]
     db.close()
 
-    import openpyxl
-    from openpyxl.styles import Font, PatternFill, Alignment
+    if not EXCEL_OK:
+        return jsonify({'hata': 'openpyxl kurulu değil'}), 500
+
     wb = openpyxl.Workbook()
 
     # Sayfa 1 — Kayıtlar
@@ -257,6 +271,8 @@ def excel_indir():
 @app.route('/api/sms', methods=['POST'])
 @giris_gerekli
 def sms_gonder():
+    if not TWILIO_OK:
+        return jsonify({'hata': 'Twilio kurulu değil'}), 400
     if not all([TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM, SMS_TO]):
         return jsonify({'hata': 'SMS ayarları eksik. TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM, SMS_TO değişkenlerini Railway Variables bölümüne ekleyin.'}), 400
     bugun = datetime.now().strftime('%Y-%m-%d')
@@ -280,8 +296,7 @@ def sms_gonder():
                  f'Toplam:{int(toplam):,}TL\n'
                  f'Nakit:{int(nakit):,} KK:{int(kk):,} Havale:{int(havale):,}')
     try:
-        from twilio.rest import Client
-        Client(TWILIO_SID, TWILIO_TOKEN).messages.create(body=mesaj, from_=TWILIO_FROM, to=SMS_TO)
+        TwilioClient(TWILIO_SID, TWILIO_TOKEN).messages.create(body=mesaj, from_=TWILIO_FROM, to=SMS_TO)
         return jsonify({'ok': True, 'mesaj': mesaj})
     except Exception as e:
         return jsonify({'hata': str(e)}), 500
