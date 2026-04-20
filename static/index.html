@@ -282,6 +282,62 @@ tbody tr:hover td{background:#f0f5ff}
   </div>
 </div>
 
+<!-- GİDER TAKİBİ -->
+<div class="bolum" id="b-gider">
+  <div class="krt">
+    <div class="krt-baslik">Yeni Gider Ekle</div>
+    <div class="g2 alan">
+      <div><label class="etiket">Tarih *</label><input id="g-tarih" type="date"></div>
+      <div><label class="etiket">Kategori *</label>
+        <select id="g-kategori">
+          <option>Kira</option><option>Personel</option><option>Malzeme</option>
+          <option>Fatura</option><option>Cihaz / Ekipman</option>
+          <option>Temizlik</option><option>Muhasebe</option><option>Diğer</option>
+        </select>
+      </div>
+    </div>
+    <div class="g2 alan">
+      <div><label class="etiket">Açıklama *</label><input id="g-aciklama" type="text" placeholder="Gider açıklaması"></div>
+      <div><label class="etiket">Tutar (₺) *</label><input id="g-tutar" type="number" min="0" step="1" placeholder="0"></div>
+    </div>
+    <div class="alan">
+      <label class="etiket">Ödeme Şekli</label>
+      <div class="tog-grup">
+        <button class="tog sec-nakit" id="gp-nakit" onclick="gPaySec('nakit')"><span class="tik">✓</span>💵 Nakit</button>
+        <button class="tog" id="gp-kk" onclick="gPaySec('kk')"><span class="tik"></span>💳 Kredi Kartı</button>
+        <button class="tog" id="gp-havale" onclick="gPaySec('havale')"><span class="tik"></span>🏦 Havale</button>
+      </div>
+    </div>
+    <div class="alan"><label class="etiket">Notlar</label><input id="g-notlar" type="text" placeholder="İsteğe bağlı..."></div>
+    <button class="btn-kaydet" id="btn-gider" onclick="giderEkle()">Gideri Ekle</button>
+  </div>
+
+  <div class="krt">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:1rem">
+      <div class="krt-baslik" style="margin-bottom:0">Gelir / Gider / Net Kâr</div>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+        <div><label class="etiket" style="font-size:10px">Başlangıç</label><input type="date" id="gl-bas" onchange="giderListeYukle()" style="min-width:130px"></div>
+        <div><label class="etiket" style="font-size:10px">Bitiş</label><input type="date" id="gl-bit" onchange="giderListeYukle()" style="min-width:130px"></div>
+        <button class="btn" onclick="giderFiltreSifirla()">Temizle</button>
+      </div>
+    </div>
+    <div class="g4" id="kar-stats" style="margin-bottom:1rem"></div>
+    <div class="g2">
+      <div><div class="krt-baslik">Kategoriye Göre Gider</div><div class="bar-wrap" id="kat-bar"></div></div>
+      <div><div class="krt-baslik">Aylık Gelir vs Gider</div><div class="bar-wrap" id="aylik-kar-bar"></div></div>
+    </div>
+  </div>
+
+  <div class="krt" style="padding:0">
+    <div class="tablo-wrap">
+      <table>
+        <thead><tr><th>Tarih</th><th>Kategori</th><th>Açıklama</th><th>Ödeme</th><th style="text-align:right">Tutar</th><th>Not</th><th style="text-align:center">İşlem</th></tr></thead>
+        <tbody id="gider-govde"><tr><td colspan="7"><div class="yukl">Yükleniyor...</div></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 </div>
 
 <!-- DÜZENLEME MODALI -->
@@ -709,74 +765,8 @@ function cizGrafik(aylar){
   islemCiz('islem-grid',curIslem,'islemTikla');
 })();
 </script>
-</body>
-</html>
 
-<!-- GİDER TAKİBİ HTML — dinamik eklendi -->
 <script>
-// Gider bölümü HTML'i body'e ekle
-document.body.insertAdjacentHTML('beforeend', `
-<div class="bolum" id="b-gider" style="display:none">
-  <div class="krt">
-    <div class="krt-baslik">Yeni Gider Ekle</div>
-    <div class="g2 alan">
-      <div><label class="etiket">Tarih *</label><input id="g-tarih" type="date"></div>
-      <div><label class="etiket">Kategori *</label>
-        <select id="g-kategori">
-          <option>Kira</option><option>Personel</option><option>Malzeme</option>
-          <option>Fatura</option><option>Cihaz / Ekipman</option>
-          <option>Temizlik</option><option>Muhasebe</option><option>Diğer</option>
-        </select>
-      </div>
-    </div>
-    <div class="g2 alan">
-      <div><label class="etiket">Açıklama *</label><input id="g-aciklama" type="text" placeholder="Gider açıklaması"></div>
-      <div><label class="etiket">Tutar (₺) *</label><input id="g-tutar" type="number" min="0" step="1" placeholder="0"></div>
-    </div>
-    <div class="alan">
-      <label class="etiket">Ödeme Şekli</label>
-      <div class="tog-grup">
-        <button class="tog sec-nakit" id="gp-nakit" onclick="gPaySec('nakit')"><span class="tik">✓</span>💵 Nakit</button>
-        <button class="tog" id="gp-kk" onclick="gPaySec('kk')"><span class="tik"></span>💳 Kredi Kartı</button>
-        <button class="tog" id="gp-havale" onclick="gPaySec('havale')"><span class="tik"></span>🏦 Havale</button>
-      </div>
-    </div>
-    <div class="alan"><label class="etiket">Notlar</label><input id="g-notlar" type="text" placeholder="İsteğe bağlı..."></div>
-    <button class="btn-kaydet" id="btn-gider" onclick="giderEkle()">Gideri Ekle</button>
-  </div>
-  <div class="krt">
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:1rem">
-      <div class="krt-baslik" style="margin-bottom:0">Gelir / Gider / Net Kâr</div>
-      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
-        <div><label class="etiket" style="font-size:10px">Başlangıç</label><input type="date" id="gl-bas" onchange="giderListeYukle()" style="min-width:130px"></div>
-        <div><label class="etiket" style="font-size:10px">Bitiş</label><input type="date" id="gl-bit" onchange="giderListeYukle()" style="min-width:130px"></div>
-        <button class="btn" onclick="giderFiltreSifirla()">Temizle</button>
-      </div>
-    </div>
-    <div class="g4" id="kar-stats" style="margin-bottom:1rem"></div>
-    <div class="g2">
-      <div><div class="krt-baslik">Kategoriye Göre Gider</div><div class="bar-wrap" id="kat-bar"></div></div>
-      <div><div class="krt-baslik">Aylık Gelir vs Gider</div><div class="bar-wrap" id="aylik-kar-bar"></div></div>
-    </div>
-  </div>
-  <div class="krt" style="padding:0">
-    <div class="tablo-wrap">
-      <table>
-        <thead><tr><th>Tarih</th><th>Kategori</th><th>Açıklama</th><th>Ödeme</th><th style="text-align:right">Tutar</th><th>Not</th><th style="text-align:center">İşlem</th></tr></thead>
-        <tbody id="gider-govde"><tr><td colspan="7"><div class="yukl">Yükleniyor...</div></td></tr></tbody>
-      </table>
-    </div>
-  </div>
-</div>
-`);
-
-// Bugünün tarihini gider tarih inputuna set et
-(function(){
-  const now=new Date(),pad=n=>String(n).padStart(2,'0');
-  const el=document.getElementById('g-tarih');
-  if(el)el.value=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
-})();
-
 let gPay='nakit';
 function gPaySec(p){
   gPay=p;
@@ -817,24 +807,18 @@ async function giderListeYukle(){
   const bas=document.getElementById('gl-bas').value||'2000-01-01';
   const bit=document.getElementById('gl-bit').value||'2099-12-31';
   try{
-    const [giderVeri, karVeri] = await Promise.all([
-      api(`/api/giderler?bas=${bas}&bit=${bit}`),
-      api(`/api/kar?bas=${bas}&bit=${bit}`)
+    const [giderVeri, karVeri]=await Promise.all([
+      api('/api/giderler?bas='+bas+'&bit='+bit),
+      api('/api/kar?bas='+bas+'&bit='+bit)
     ]);
-
-    // Kâr stat kartları
     const kar=karVeri.net_kar;
-    const karRenk=kar>=0?'var(--yt)':'var(--kt)';
+    const karRenk=kar>=0?'#158a38':'#cc2020';
     document.getElementById('kar-stats').innerHTML=`
-      <div class="stat-krt"><div class="stat-etiket">Toplam Gelir</div><div class="stat-sayi" style="font-size:16px;color:var(--yt)">${para(karVeri.toplam_gelir)}</div></div>
-      <div class="stat-krt"><div class="stat-etiket">Toplam Gider</div><div class="stat-sayi" style="font-size:16px;color:var(--kt)">${para(karVeri.toplam_gider)}</div></div>
-      <div class="stat-krt"><div class="stat-etiket">Net Kâr</div><div class="stat-sayi" style="font-size:16px;color:${karRenk}">${kar>=0?'':'- '}${para(Math.abs(kar))}</div></div>
-      <div class="stat-krt"><div class="stat-etiket">Kâr Marjı</div><div class="stat-sayi" style="font-size:16px;color:${karRenk}">${karVeri.toplam_gelir?Math.round(kar/karVeri.toplam_gelir*100):0}%</div></div>`;
-
-    // Kategori bar
+      <div class="stat-krt"><div class="stat-etiket">Toplam Gelir</div><div class="stat-sayi" style="font-size:16px;color:#158a38">${para(karVeri.toplam_gelir)}</div></div>
+      <div class="stat-krt"><div class="stat-etiket">Toplam Gider</div><div class="stat-sayi" style="font-size:16px;color:#cc2020">${para(karVeri.toplam_gider)}</div></div>
+      <div class="stat-krt"><div class="stat-etiket">Net Kar</div><div class="stat-sayi" style="font-size:16px;color:${karRenk}">${para(Math.abs(kar))}</div></div>
+      <div class="stat-krt"><div class="stat-etiket">Kar Marji</div><div class="stat-sayi" style="font-size:16px;color:${karRenk}">${karVeri.toplam_gelir?Math.round(kar/karVeri.toplam_gelir*100):0}%</div></div>`;
     barGrafik('kat-bar',karVeri.kategoriler.map(k=>({e:k.kategori,d:k.tutar})),e=>KAT_RENK[e]||'#4b5570',para);
-
-    // Aylık gelir vs gider
     const aylikEl=document.getElementById('aylik-kar-bar');
     if(!karVeri.aylik.length){aylikEl.innerHTML='<div style="color:var(--y3);font-size:13px;padding:.5rem">Veri yok</div>';}
     else{
@@ -846,8 +830,6 @@ async function giderListeYukle(){
           <div class="bar-s"><div class="bar-e" style="width:60px;font-size:11px">Gider</div><div class="bar-a"><div class="bar-d" style="width:${Math.round(a.gider/maxAy*100)}%;background:#cc2020"></div></div><div class="bar-v" style="font-size:11px;width:80px">${para(a.gider)}</div></div>
         </div>`).join('');
     }
-
-    // Gider tablosu
     const rows=giderVeri.giderler;
     const tb=document.getElementById('gider-govde');
     if(!rows.length){tb.innerHTML='<tr><td colspan="7"><div class="bos">Gider kaydı yok</div></td></tr>';return}
@@ -859,7 +841,7 @@ async function giderListeYukle(){
         <td><span class="bdg" style="background:${renk}22;color:${renk}">${g.kategori}</span></td>
         <td style="font-weight:600">${g.aciklama}</td>
         <td>${pB}</td>
-        <td style="text-align:right;font-weight:700;color:var(--kt)">${para(g.tutar)}</td>
+        <td style="text-align:right;font-weight:700;color:#cc2020">${para(g.tutar)}</td>
         <td style="font-size:12px;color:var(--y2)">${g.notlar||''}</td>
         <td style="text-align:center"><button class="btn btn-sil" onclick="giderSil(${g.id})">🗑 Sil</button></td>
       </tr>`;
@@ -872,4 +854,13 @@ async function giderSil(id){
   try{await api('/api/giderler/'+id,{method:'DELETE'});bildirim('Gider silindi');giderListeYukle();}
   catch(e){bildirim('❌ '+e.message);}
 }
+
+// Init — tarih alanlarını bugüne set et
+(function(){
+  const now=new Date(),pad=n=>String(n).padStart(2,'0');
+  const bugun=now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
+  document.getElementById('g-tarih').value=bugun;
+})();
 </script>
+</body>
+</html>
