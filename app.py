@@ -307,9 +307,10 @@ def sms_gonder():
 def spa(path):
     if path and os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
-    if not session.get('giris') and path != 'giris':
-        return redirect('/giris')
+    if path == 'giris' or path == 'giris.html':
+        return send_from_directory(app.static_folder, 'giris.html')
+    if not session.get('giris'):
+        return send_from_directory(app.static_folder, 'giris.html')
     return send_from_directory(app.static_folder, 'index.html')
-
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
