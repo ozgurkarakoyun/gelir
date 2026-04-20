@@ -46,6 +46,15 @@ def kurulum():
         odeme TEXT NOT NULL DEFAULT 'nakit',
         notlar TEXT DEFAULT ''
     )''')
+    db.execute('''CREATE TABLE IF NOT EXISTS giderler (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tarih TEXT NOT NULL,
+        kategori TEXT NOT NULL,
+        aciklama TEXT NOT NULL,
+        tutar REAL NOT NULL DEFAULT 0,
+        odeme TEXT NOT NULL DEFAULT 'nakit',
+        notlar TEXT DEFAULT ''
+    )''')
     db.commit()
     db.close()
 
@@ -152,6 +161,104 @@ def rapor():
         'nakit':  sum(r['ucret'] for r in rows if r['odeme']=='nakit'),
         'kk':     sum(r['ucret'] for r in rows if r['odeme']=='kk'),
         'havale': sum(r['ucret'] for r in rows if r['odeme']=='havale'),
+    })
+
+# ── Giderler ──────────────────────────────────────────────
+@app.route('/api/giderler', methods=['GET'])
+@giris_gerekli
+def gider_listele():
+    bas = request.args.get('bas', '2000-01-01')
+    bit = request.args.get('bit', '2099-12-31')
+    db = kon()
+    rows = [dict(r) for r in db.execute(
+        'SELECT * FROM giderler WHERE tarih>=? AND tarih<=? ORDER BY tarih DESC',
+        [bas+'T00:00:00', bit+'T23:59:59']
+    ).fetchall()]
+    db.close()
+    return jsonify({
+        'giderler': rows,
+        'toplam': sum(r['tutar'] for r in rows)
+    })
+
+@app.route('/api/giderler', methods=['POST'])
+@giris_gerekli
+def gider_ekle():
+    d = request.get_json()
+    if not d or not d.get('aciklama') or not d.get('tarih'):
+        return jsonify({'hata': 'Eksik bilgi'}), 400
+    db = kon()
+    cur = db.execute(
+        'INSERT INTO giderler (tarih,kategori,aciklama,tutar,odeme,notlar) VALUES (?,?,?,?,?,?)',
+        (d['tarih'], d.get('kategori','Diğer'), d['aciklama'],
+         float(d.get('tutar',0)), d.get('odeme','nakit'), d.get('notlar',''))
+    )
+    yeni_id = cur.lastrowid
+    db.commit()
+    row = db.execute('SELECT * FROM giderler WHERE id=?', (yeni_id,)).fetchone()
+    db.close()
+    return jsonify(dict(row)), 201
+
+@app.route('/api/giderler/<int:gid>', methods=['PUT'])
+@giris_gerekli
+def gider_guncelle(gid):
+    d = request.get_json()
+    db = kon()
+    db.execute(
+        'UPDATE giderler SET tarih=?,kategori=?,aciklama=?,tutar=?,odeme=?,notlar=? WHERE id=?',
+        (d['tarih'], d.get('kategori','Diğer'), d['aciklama'],
+         float(d.get('tutar',0)), d.get('odeme','nakit'), d.get('notlar',''), gid)
+    )
+    db.commit()
+    row = db.execute('SELECT * FROM giderler WHERE id=?', (gid,)).fetchone()
+    db.close()
+    return jsonify(dict(row))
+
+@app.route('/api/giderler/<int:gid>', methods=['DELETE'])
+@giris_gerekli
+def gider_sil(gid):
+    db = kon()
+    db.execute('DELETE FROM giderler WHERE id=?', (gid,))
+    db.commit()
+    db.close()
+    return jsonify({'ok': True})
+
+@app.route('/api/kar')
+@giris_gerekli
+def kar_rapor():
+    bas = request.args.get('bas', '2000-01-01')
+    bit = request.args.get('bit', '2099-12-31')
+    db = kon()
+    gelir_rows = [dict(r) for r in db.execute(
+        'SELECT * FROM kayitlar WHERE tarih>=? AND tarih<=?',
+        [bas+'T00:00:00', bit+'T23:59:59']
+    ).fetchall()]
+    gider_rows = [dict(r) for r in db.execute(
+        'SELECT * FROM giderler WHERE tarih>=? AND tarih<=?',
+        [bas+'T00:00:00', bit+'T23:59:59']
+    ).fetchall()]
+    db.close()
+    toplam_gelir = sum(r['ucret'] for r in gelir_rows)
+    toplam_gider = sum(r['tutar'] for r in gider_rows)
+    # Aylık kırılım
+    ay_map = {}
+    for r in gelir_rows:
+        ay = r['tarih'][:7]
+        if ay not in ay_map: ay_map[ay] = {'gelir':0,'gider':0}
+        ay_map[ay]['gelir'] += r['ucret']
+    for r in gider_rows:
+        ay = r['tarih'][:7]
+        if ay not in ay_map: ay_map[ay] = {'gelir':0,'gider':0}
+        ay_map[ay]['gider'] += r['tutar']
+    # Kategori bazlı gider
+    kat_map = {}
+    for r in gider_rows:
+        kat_map[r['kategori']] = kat_map.get(r['kategori'],0) + r['tutar']
+    return jsonify({
+        'toplam_gelir': toplam_gelir,
+        'toplam_gider': toplam_gider,
+        'net_kar': toplam_gelir - toplam_gider,
+        'aylik': [{'ay':k,'gelir':v['gelir'],'gider':v['gider'],'kar':v['gelir']-v['gider']} for k,v in sorted(ay_map.items())],
+        'kategoriler': [{'kategori':k,'tutar':v} for k,v in sorted(kat_map.items(), key=lambda x:-x[1])]
     })
 
 # ── Hasta Geçmişi ─────────────────────────────────────────
@@ -320,5 +427,6 @@ def spa(path):
     if not session.get('giris'):
         return send_from_directory(app.static_folder, 'giris.html')
     return send_from_directory(app.static_folder, 'index.html')
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
