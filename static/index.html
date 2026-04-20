@@ -388,6 +388,7 @@ const ISLEMLER=[
   {id:'prp',ad:'PRP',am:false},{id:'alci',ad:'Alçı',am:false},
   {id:'tirnak',ad:'Tırnak Çekimi',am:false},{id:'lipodem',ad:'Lipoödem Ted.',am:false},
   {id:'ameliyat',ad:'Ameliyat 🔪',am:true},
+  {id:'diger',ad:'Diğer',am:false,aciklama:true},
 ];
 
 let curDoc='ortopedi', curPay='nakit', curIslem=[];
@@ -447,14 +448,32 @@ function mPaySec(p){mPay=p;togSec(p,[{id:'mp-nakit',deger:'nakit',cls:'sec-nakit
 
 // İşlem grid
 function islemCiz(konteyner,secili,tiklaFn){
+  const digerSec=secili.includes('diger');
   document.getElementById(konteyner).innerHTML=ISLEMLER.map(p=>{
     const sec=secili.includes(p.id);
     const cls=sec?(p.am?'ib sec-am':'ib sec'):'ib';
     return`<button class="${cls}" onclick="${tiklaFn}('${p.id}')"><span class="itik">${sec?'✓':''}</span>${p.ad}</button>`;
-  }).join('');
+  }).join('')
+  + (digerSec ? `<div style="grid-column:1/-1;margin-top:8px"><label class="etiket">Diğer işlem açıklaması *</label><input type="text" id="${konteyner}-diger-aciklama" class="inp-diger" placeholder="İşlemi açıklayın..." style="width:100%;padding:8px 11px;border:1.5px solid #a8b5d0;border-radius:7px;font:inherit;font-size:13px;outline:none" oninput="digerAciklamaGuncelle('${konteyner}')"></div>` : '');
 }
-function islemTikla(id){const i=curIslem.indexOf(id);if(i>-1)curIslem.splice(i,1);else curIslem.push(id);islemCiz('islem-grid',curIslem,'islemTikla');}
-function mIslemTikla(id){const i=mIslem.indexOf(id);if(i>-1)mIslem.splice(i,1);else mIslem.push(id);islemCiz('m-islem-grid',mIslem,'mIslemTikla');}
+function digerAciklamaGuncelle(konteyner){
+  const el=document.getElementById(konteyner+'-diger-aciklama');
+  if(konteyner==='islem-grid') window._digerAciklama=el?el.value:'';
+  else window._mDigerAciklama=el?el.value:'';
+}
+function islemTikla(id){
+  const i=curIslem.indexOf(id);
+  if(i>-1)curIslem.splice(i,1);else curIslem.push(id);
+  islemCiz('islem-grid',curIslem,'islemTikla');
+  if(curIslem.includes('diger')){
+    setTimeout(()=>{const el=document.getElementById('islem-grid-diger-aciklama');if(el)el.focus();},50);
+  }
+}
+function mIslemTikla(id){
+  const i=mIslem.indexOf(id);
+  if(i>-1)mIslem.splice(i,1);else mIslem.push(id);
+  islemCiz('m-islem-grid',mIslem,'mIslemTikla');
+}
 
 // Kaydet
 async function kaydet(){
@@ -465,15 +484,20 @@ async function kaydet(){
   if(!hasta){bildirim('⚠ Hasta adı gerekli');return}
   if(!tarih){bildirim('⚠ Tarih seçiniz');return}
   if(!curIslem.length){bildirim('⚠ En az bir işlem seçiniz');return}
+  if(curIslem.includes('diger')&&!window._digerAciklama?.trim()){bildirim('⚠ Diğer işlem için açıklama gerekli');return}
   const btn=document.getElementById('btn-kaydet');
   btn.disabled=true;btn.textContent='Kaydediliyor...';
   try{
-    const adlar=curIslem.map(id=>ISLEMLER.find(x=>x.id===id)?.ad||id);
+    const adlar=curIslem.map(id=>{
+      if(id==='diger') return 'Diğer: '+(window._digerAciklama||'').trim();
+      return ISLEMLER.find(x=>x.id===id)?.ad||id;
+    });
     await api('/api/kayitlar',{method:'POST',body:JSON.stringify({hasta,tarih,doktor:curDoc,islemler:adlar,ucret,odeme:curPay,notlar})});
     bildirim('✓ Kayıt eklendi');
     document.getElementById('f-hasta').value='';
     document.getElementById('f-ucret').value='';
     document.getElementById('f-notlar').value='';
+    window._digerAciklama='';
     curIslem=[];islemCiz('islem-grid',curIslem,'islemTikla');
   }catch(e){bildirim('❌ '+e.message);}
   btn.disabled=false;btn.textContent='Kaydı Ekle';
@@ -572,7 +596,10 @@ async function guncelle(){
   const ucret=parseFloat(document.getElementById('m-ucret').value)||0;
   const notlar=document.getElementById('m-notlar').value.trim();
   if(!hasta||!tarih){bildirim('⚠ Hasta ve tarih zorunlu');return}
-  const adlar=mIslem.map(id=>ISLEMLER.find(x=>x.id===id)?.ad||id);
+  const adlar=mIslem.map(id=>{
+    if(id==='diger') return 'Diğer: '+(window._mDigerAciklama||'').trim();
+    return ISLEMLER.find(x=>x.id===id)?.ad||id;
+  });
   try{
     await api('/api/kayitlar/'+duzenleId,{method:'PUT',body:JSON.stringify({hasta,tarih,doktor:mDoc,islemler:adlar,ucret,odeme:mPay,notlar})});
     bildirim('✓ Güncellendi');modalKapat();listeYukle();
