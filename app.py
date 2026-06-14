@@ -450,6 +450,37 @@ def ana():
 def giris_route():
     return send_from_directory(app.static_folder, 'giris.html')
 
+# ── HARICI ENTEGRASYON (Klinik Asistan) — token korumali, login bypass ──
+EXTERNAL_TOKEN = os.environ.get('EXTERNAL_TOKEN', '')
+
+def _tr_lower(s):
+    s = (s or '')
+    for a, b in (('İ','i'),('I','ı'),('Ş','ş'),('Ğ','ğ'),('Ü','ü'),('Ö','ö'),('Ç','ç')):
+        s = s.replace(a, b)
+    return ' '.join(s.lower().split())
+
+@app.route('/api/external/ozet')
+def external_ozet():
+    if EXTERNAL_TOKEN and request.headers.get('Authorization', '') != f'Bearer {EXTERNAL_TOKEN}':
+        return jsonify({'hata': 'yetkisiz'}), 401
+    target = _tr_lower(request.args.get('ad', '') + ' ' + request.args.get('soyad', ''))
+    if not target.strip():
+        return jsonify({'bulundu': False})
+    db = kon()
+    rows = db.execute("SELECT hasta, ucret, tarih FROM kayitlar").fetchall()
+    db.close()
+    matched = [r for r in rows if _tr_lower(r['hasta']) == target]
+    if not matched:
+        return jsonify({'bulundu': False})
+    return jsonify({
+        'bulundu': True,
+        'toplam_tahsilat': sum((r['ucret'] or 0) for r in matched),
+        'ziyaret_sayisi': len(matched),
+        'son_islem_tarihi': max(r['tarih'] for r in matched),
+        'bekleyen_bakiye': None,
+        'kimlik_dogrulama': 'yok',
+    })
+
 @app.route('/<path:path>')
 def spa(path):
     dosya = os.path.join(app.static_folder, path)
